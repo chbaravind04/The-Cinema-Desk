@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>The Cinema Desk</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap');
+    .title-font { font-family: 'Cinzel', serif; }
+    body { font-family: 'Inter', sans-serif; }
+    .chat-bubble-ai { background: #18181b; border-left: 3px solid #eab308; }
+    .chat-bubble-ai p { margin-bottom: 0.5rem; }
+    .chat-bubble-ai p:last-child { margin-bottom: 0; }
+    .chat-bubble-ai ul { list-style-type: disc; margin-left: 1.25rem; margin-bottom: 0.5rem; }
+    .chat-bubble-ai ol { list-style-type: decimal; margin-left: 1.25rem; margin-bottom: 0.5rem; }
+    .chat-bubble-ai strong { color: #facc15; }
+    .chat-bubble-user { background: #eab308; color: #09090b; }
+  </style>
+</head>
+<body class="bg-neutral-950 text-neutral-100 min-h-screen flex flex-col items-center p-3 sm:p-6">
+  <header class="w-full max-w-3xl flex items-center justify-between py-4 border-b border-neutral-800 mb-4">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-500 text-lg border border-yellow-500/20">
+        <i class="fa-solid fa-film"></i>
+      </div>
+      <div>
+        <h1 class="title-font text-xl sm:text-2xl font-bold tracking-wide text-neutral-100">THE CINEMA DESK</h1>
+        <p class="text-xs text-neutral-400">Your AI Film Critic, Historian & Guide</p>
+      </div>
+    </div>
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-950 text-emerald-400 border border-emerald-800">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Online
+    </span>
+  </header>
+
+  <main class="w-full max-w-3xl flex-1 bg-neutral-900/70 border border-neutral-800 rounded-2xl flex flex-col h-[75vh] shadow-2xl overflow-hidden backdrop-blur">
+    <div id="chatHistory" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+      <div class="chat-bubble-ai p-4 rounded-xl text-sm leading-relaxed shadow-sm">
+        👋 Welcome to <strong>The Cinema Desk</strong>. Ask me for recommendations, director filmographies, plot breakdowns, trivia, or cinema history!
+      </div>
+    </div>
+
+    <div class="px-4 py-2 border-t border-neutral-800/80 bg-neutral-950/40 flex gap-2 overflow-x-auto text-xs text-neutral-400">
+      <button onclick="sendQuickPrompt(this)" class="whitespace-nowrap px-3 py-1.5 rounded-full bg-neutral-800 hover:bg-neutral-700 transition">Recommend a 90s thriller</button>
+      <button onclick="sendQuickPrompt(this)" class="whitespace-nowrap px-3 py-1.5 rounded-full bg-neutral-800 hover:bg-neutral-700 transition">Best Christopher Nolan films</button>
+      <button onclick="sendQuickPrompt(this)" class="whitespace-nowrap px-3 py-1.5 rounded-full bg-neutral-800 hover:bg-neutral-700 transition">Tell me about Salaar movie</button>
+    </div>
+
+    <form id="chatForm" class="p-4 bg-neutral-950 border-t border-neutral-800 flex items-center gap-3">
+      <input
+        type="text"
+        id="userInput"
+        placeholder="Ask anything about movies or directors..."
+        class="flex-1 bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-yellow-500 transition text-neutral-100 placeholder-neutral-500"
+        autocomplete="off"
+        required
+      />
+      <button type="submit" id="submitBtn" class="bg-yellow-500 hover:bg-yellow-400 text-neutral-950 font-semibold px-5 py-3 rounded-xl transition flex items-center gap-2 text-sm shadow-md">
+        <span>Send</span>
+        <i class="fa-solid fa-paper-plane text-xs"></i>
+      </button>
+    </form>
+  </main>
+
+  <script>
+    // Uses the same origin automatically
+    const API_ENDPOINT = "/api/chat";
+    const chatHistory = document.getElementById("chatHistory");
+    const chatForm = document.getElementById("chatForm");
+    const userInput = document.getElementById("userInput");
+    const submitBtn = document.getElementById("submitBtn");
+
+    function appendMessage(sender, text) {
+      const msgDiv = document.createElement("div");
+      if (sender === "user") {
+        msgDiv.className = "flex justify-end";
+        msgDiv.innerHTML = `<div class="chat-bubble-user px-4 py-2.5 rounded-2xl text-sm font-medium max-w-[80%] shadow-md whitespace-pre-wrap">${escapeHtml(text)}</div>`;
+      } else {
+        msgDiv.className = "flex justify-start";
+        const formatted = marked.parse(text);
+        msgDiv.innerHTML = `<div class="chat-bubble-ai p-4 rounded-xl text-sm leading-relaxed max-w-[85%] shadow-sm text-neutral-200">${formatted}</div>`;
+      }
+      chatHistory.appendChild(msgDiv);
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    function appendLoading() {
+      const loadDiv = document.createElement("div");
+      loadDiv.id = "loadingBubble";
+      loadDiv.className = "flex justify-start";
+      loadDiv.innerHTML = `
+        <div class="chat-bubble-ai px-4 py-3 rounded-xl text-xs text-neutral-400 flex items-center gap-2">
+          <i class="fa-solid fa-circle-notch fa-spin text-yellow-500"></i> The Cinema Desk is consulting its archives...
+        </div>`;
+      chatHistory.appendChild(loadDiv);
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    function removeLoading() {
+      const el = document.getElementById("loadingBubble");
+      if (el) el.remove();
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    async function handleSend(text) {
+      if (!text.trim()) return;
+
+      appendMessage("user", text);
+      userInput.value = "";
+      userInput.disabled = true;
+      submitBtn.disabled = true;
+      appendLoading();
+
+      try {
+        const response = await fetch(API_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text })
+        });
+
+        if (!response.ok) throw new Error("Server error " + response.status);
+
+        const data = await response.json();
+        removeLoading();
+        appendMessage("ai", data.response);
+      } catch (err) {
+        removeLoading();
+        appendMessage("ai", "⚠️ Could not reach The Cinema Desk. Please try again.");
+      } finally {
+        userInput.disabled = false;
+        submitBtn.disabled = false;
+        userInput.focus();
+      }
+    }
+
+    chatForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      handleSend(userInput.value);
+    });
+
+    function sendQuickPrompt(button) {
+      handleSend(button.innerText);
+    }
+  </script>
+</body>
+</html>
